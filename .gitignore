@@ -1,0 +1,87 @@
+# =====================================================
+# Clinexa monorepo — client (Angular/Yarn) + server (Maven/Spring)
+# =====================================================
+
+# ---------- Node / Yarn (client) ----------
+node_modules/
+**/.yarn/install-state.gz
+**/.yarn/cache/
+**/.yarn/unplugged/
+**/.yarn/build-state.yml
+.pnp.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+
+# Angular build output / cache
+dist/
+tmp/
+out-tsc/
+bazel-out/
+.angular/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+__screenshots__/
+
+# ---------- Maven / Spring Boot (server) ----------
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.jar
+!.mvn/wrapper/*.jar
+*.war
+*.class
+.mvn/timing.properties
+.flattened-pom.xml
+
+# Spring Boot devtools / build info
+build/
+
+# ---------- Java IDEs ----------
+*.iml
+*.ipr
+*.iws
+
+# ---------- IDE / editors ----------
+.idea/
+.claude/
+CLAUDE.md
+.vscode/
+.project
+.classpath
+.settings/
+.c9/
+*.launch
+*.sublime-workspace
+.history/*
+
+# ---------- Environment / secrets ----------
+.env
+.env.*
+!.env.example
+*.local
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# ---------- Docker ----------
+docker/volumes/
+docker-compose.override.yaml
+docker-compose.override.yml
+
+# ---------- Logs ----------
+*.log
+logs/
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Misc ----------
+*.bak
+*.tmp
+*.pid
+*.seed

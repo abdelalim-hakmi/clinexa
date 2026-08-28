@@ -50,10 +50,20 @@ Paste the generated ID into `KAFKA_CLUSTER_ID` in `.env`, then start everything:
 docker compose up -d
 ```
 
-That's it — defaults in `.env.example` (incl. `clinexa`/`clinexa` dev credentials for Postgres, Mongo, and Redis) just work. Services are opt-in via `COMPOSE_PROFILES` in `.env` (default: `kafka,postgres,mongo,redis,zipkin`); `mail-dev` has no profile and always starts. To run a subset:
+That's it — defaults in `.env.example` (incl. `clinexa`/`clinexa` dev credentials for Postgres, Mongo, and Redis) just work. Services are opt-in via `COMPOSE_PROFILES` in `.env` (default: `kafka,postgres,mongo,redis,zipkin`); `mail-dev` has no profile and always starts. Mongo Express and RedisInsight (web UIs for Mongo and Redis) share the `mongo`/`redis` profiles respectively — no separate profile needed. To run a subset:
 ```bash
 docker compose --profile kafka --profile postgres up -d
 ```
+
+#### Web UIs
+
+| Service | URL | Login |
+|---------|-----|-------|
+| Kafka UI | http://localhost:8080 | — |
+| Mongo Express | http://localhost:8081 | `MONGO_EXPRESS_USER` / `MONGO_EXPRESS_PASSWORD` |
+| RedisInsight | http://localhost:5540 | Redis connection is preconfigured (`REDIS_PASSWORD`) |
+| Zipkin | http://localhost:9411 | — |
+| MailDev | http://localhost:1080 | — |
 
 #### Smoke Tests
 
@@ -75,10 +85,12 @@ All check container health, cross-container network reachability, and accept ove
 ```
 clinexa/
 ├── README.md                          # You are here
-├── CLAUDE.md                          # Internal: Claude Code guidance
 ├── .env.example                       # Environment template
 ├── docker-compose.yaml                # Services orchestration
+├── postgres-initdb/
+│   └── 01-create-databases.sh         # Postgres init script (run on first container startup)
 ├── _dev/
+│   ├── docker-compose-fixes.md        # Dev-infra fix log
 │   ├── kafka-smoke-test.ps1           # Kafka end-to-end smoke test
 │   ├── postgres-smoke-test.ps1        # Postgres end-to-end smoke test
 │   ├── mongo-smoke-test.ps1           # Mongo end-to-end smoke test
@@ -132,7 +144,7 @@ docker compose down     # Stop all services
 
 - **[client/README.md](client/README.md)** — Client setup & commands
 - **[server/README.md](server/README.md)** — Server setup & commands
-- **[CLAUDE.md](CLAUDE.md)** — Internal guidance for Claude Code
+- `CLAUDE.md` — Internal guidance for Claude Code (gitignored, local-only — not part of the shared repo)
 
 ---
 

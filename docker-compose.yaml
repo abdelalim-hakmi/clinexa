@@ -83,6 +83,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata  # Subdirectory, not the volume root (avoids initdb failing on a non-empty mount)
     volumes:  # Mount a persistent volume
       - postgres:/var/lib/postgresql/data  # Maps named volume `postgres` to Postgres data folder
+      - ./postgres-initdb:/docker-entrypoint-initdb.d/  # Init scripts, run by the Postgres entrypoint on first startup only (empty PGDATA)
     ports:
       - '${POSTGRES_PORT:-5432}:5432'  # Expose port: host ${POSTGRES_PORT} → container 5432 (PostgreSQL default)
     networks:
@@ -119,6 +120,36 @@ services:
       retries: 5
 
   #
+  # Mongo Express
+  # Enabled via the `mongo` profile in COMPOSE_PROFILES (see .env.example) — tied to mongo, not standalone
+  #
+  mongo-express:
+    container_name: clinexa_mongo_express
+    image: mongo-express:1.0.2  # Pinned version for reproducibility
+    profiles: [ "mongo" ]  # Shares mongo's profile (Compose profiles are OR-only, so this is how depends_on stays satisfied)
+    ports:
+      - '${MONGO_EXPRESS_PORT:-8081}:8081'  # Web UI
+    environment:
+      ME_CONFIG_MONGODB_SERVER: clinexa_mongo  # Reach the mongo container by its container_name on clinexa-dev-net
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ADMINUSERNAME: '${MONGO_USER}'  # Root user to authenticate against MongoDB
+      ME_CONFIG_MONGODB_ADMINPASSWORD: '${MONGO_PASSWORD}'
+      ME_CONFIG_BASICAUTH_USERNAME: '${MONGO_EXPRESS_USER}'  # Login for the Mongo Express web UI itself
+      ME_CONFIG_BASICAUTH_PASSWORD: '${MONGO_EXPRESS_PASSWORD}'
+    depends_on:
+      mongo:
+        condition: service_healthy  # Wait for Mongo to actually accept connections, not just start
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- \"http://$$ME_CONFIG_BASICAUTH_USERNAME:$$ME_CONFIG_BASICAUTH_PASSWORD@127.0.0.1:8081\" >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  #
   # Redis
   # Enabled via the `redis` profile in COMPOSE_PROFILES (see .env.example)
   #
@@ -139,6 +170,38 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  #
+  # RedisInsight
+  # Enabled via the `redis` profile in COMPOSE_PROFILES (see .env.example) — tied to redis, not standalone
+  #
+  redisinsight:
+    container_name: clinexa_redis_insight
+    image: redis/redisinsight:3.8.0  # Pinned version for reproducibility
+    profiles: [ "redis" ]  # Shares redis's profile (Compose profiles are OR-only, so this is how depends_on stays satisfied)
+    ports:
+      - '${REDISINSIGHT_PORT:-5540}:5540'  # Web UI
+    environment:
+      RI_ACCEPT_TERMS_AND_CONDITIONS: 'true'  # Skip the EULA prompt in the UI on first run
+      RI_REDIS_HOST: clinexa_redis  # Reach the redis container by its container_name on clinexa-dev-net — preconfigures the connection
+      RI_REDIS_PORT: 6379
+      RI_REDIS_ALIAS: clinexa-redis
+      RI_REDIS_USERNAME: default
+      RI_REDIS_PASSWORD: '${REDIS_PASSWORD}'
+    volumes:
+      - redisinsight:/data  # Persist RedisInsight's own settings/history across restarts
+    depends_on:
+      redis:
+        condition: service_healthy  # Wait for Redis to actually accept connections, not just start
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:5540 >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   #
   # Zipkin
@@ -186,3 +249,4 @@ volumes:
   postgres:
   mongo:
   redis:
+  redisinsight:

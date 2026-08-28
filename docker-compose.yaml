@@ -1,0 +1,188 @@
+services:
+
+  #
+  # Kafka (KRaft mode)
+  # Enabled via the `kafka` profile in COMPOSE_PROFILES (see .env.example)
+  #
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0  # Pinned version for reproducibility
+    container_name: clinexa_kafka
+    profiles: [ "kafka" ]
+    ports:
+      - "9092:9092"  # Client-facing port, reachable from the host machine
+    environment:
+      # --- KRaft core config ---
+      KAFKA_NODE_ID: 1  # Unique ID for this node within the cluster
+      KAFKA_PROCESS_ROLES: broker,controller  # This node acts as both broker and controller (fine for single-node dev)
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@clinexa_kafka:9093  # List of controller nodes forming the quorum (id@host:port)
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER  # Name of the listener dedicated to controller traffic
+
+      # --- Listeners (internal/external pattern) ---
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,DOCKER://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093  # Host listener + docker-internal listener + controller listener
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,DOCKER://clinexa_kafka:29092  # What's advertised to host clients vs docker-network clients
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,DOCKER:PLAINTEXT  # Protocol used per listener
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER  # Listener used for broker-to-broker communication (docker-internal)
+
+      # --- Cluster identity ---
+      CLUSTER_ID: '${KAFKA_CLUSTER_ID}'
+
+      # --- Topic/log replication settings ---
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1  # Replication factor for the internal offsets topic
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1  # Replication factor for the transaction state log
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1  # Minimum in-sync replicas required for transactions
+    volumes:
+      - kafka_data:/var/lib/kafka/data  # Persist Kafka data across container restarts
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  #
+  # Kafka-ui
+  # Enabled via the `kafka` profile in COMPOSE_PROFILES (see .env.example) — tied to kafka, not standalone
+  #
+  kafka-ui:
+    image: ghcr.io/kafbat/kafka-ui:v1.5.0  # Actively maintained fork of the (now inactive) Provectus kafka-ui — pinned for reproducibility
+    container_name: clinexa_kafka_ui
+    profiles: [ "kafka" ]  # Shares kafka's profile (Compose profiles are OR-only, so this is how depends_on stays satisfied)
+    ports:
+      - "8080:8080"  # Web UI
+    environment:
+      KAFKA_CLUSTERS_0_NAME: clinexa-dev
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: clinexa_kafka:29092  # Via the DOCKER listener (cross-container), not localhost
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    depends_on:
+      kafka:
+        condition: service_healthy  # Wait for the broker to actually accept connections, not just start
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  #
+  # PostgreSQL
+  # Enabled via the `postgres` profile in COMPOSE_PROFILES (see .env.example)
+  #
+  postgres:  # PostgreSQL database service
+    container_name: clinexa_postgres  # Custom name for the container
+    image: postgres:18.6-bookworm  # Docker image to use
+    profiles: [ "postgres" ]
+    environment:  # Environment variables for configuration
+      POSTGRES_USER: '${POSTGRES_USER}'  # Username for the database
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'  # Password for the user
+      PGDATA: /var/lib/postgresql/data/pgdata  # Subdirectory, not the volume root (avoids initdb failing on a non-empty mount)
+    volumes:  # Mount a persistent volume
+      - postgres:/var/lib/postgresql/data  # Maps named volume `postgres` to Postgres data folder
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'  # Expose port: host ${POSTGRES_PORT} → container 5432 (PostgreSQL default)
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #
+  # MongoDB
+  # Enabled via the `mongo` profile in COMPOSE_PROFILES (see .env.example)
+  #
+  mongo:  # MongoDB database service
+    container_name: clinexa_mongo
+    image: mongo:8.0  # Docker image to use
+    profiles: [ "mongo" ]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: '${MONGO_USER}'  # Root username
+      MONGO_INITDB_ROOT_PASSWORD: '${MONGO_PASSWORD}'  # Root password
+    volumes:
+      - mongo:/data/db  # Maps named volume `mongo` to Mongo data folder
+    ports:
+      - '${MONGO_PORT:-27017}:27017'  # Expose port: host ${MONGO_PORT} → container 27017 (Mongo default)
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')" ]  # ping is allowed without auth
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #
+  # Redis
+  # Enabled via the `redis` profile in COMPOSE_PROFILES (see .env.example)
+  #
+  redis:  # Redis cache/store service
+    container_name: clinexa_redis
+    image: redis:8.0-alpine  # Docker image to use
+    profiles: [ "redis" ]
+    command: [ "redis-server", "--requirepass", "${REDIS_PASSWORD}" ]  # Auth enabled, password from env
+    volumes:
+      - redis:/data  # Maps named volume `redis` to Redis data folder
+    ports:
+      - '${REDIS_PORT:-6379}:6379'  # Expose port: host ${REDIS_PORT} → container 6379 (Redis default)
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping | grep -q PONG" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  #
+  # Zipkin
+  # Enabled via the `zipkin` profile in COMPOSE_PROFILES (see .env.example)
+  #
+  zipkin:  # Distributed tracing UI/API (in-memory storage, dev only — data lost on restart)
+    container_name: clinexa_zipkin
+    image: ghcr.io/openzipkin/zipkin:3.6.1  # Pinned version for reproducibility
+    profiles: [ "zipkin" ]
+    ports:
+      - '${ZIPKIN_PORT:-9411}:9411'  # Web UI & HTTP API
+    networks:
+      - clinexa-dev-net
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    # No custom healthcheck: the image is Alpine-based with no curl/wget, and already
+    # ships its own baked-in HEALTHCHECK (docker-healthcheck) — Compose inherits it automatically.
+
+  #
+  # Mail-dev
+  # No profile declared for this service in .env.example — always runs
+  #
+  mail-dev: # Fake SMTP email server for development
+    container_name: clinexa_mail_dev  # Container name
+    image: maildev/maildev:2.2.1  # Lightweight dev mail server — pinned version for reproducibility
+    ports:
+      - '${MAILDEV_UI_PORT:-1080}:1080'    # Web UI for viewing emails
+      - '${MAILDEV_SMTP_PORT:-1025}:1025'  # SMTP port for sending emails from apps
+    networks:
+      - clinexa-dev-net  # So other services can reach it by container name, not just from the host
+    restart: unless-stopped  # Auto-restart unless manually stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:1080/ >/dev/null || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Private network
+networks:
+  clinexa-dev-net:  # Logical network all services connect to
+    driver: bridge  # Default bridge driver (isolated Docker network)
+
+# Volumes
+volumes:
+  kafka_data:
+  postgres:
+  mongo:
+  redis:

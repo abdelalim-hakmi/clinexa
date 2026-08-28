@@ -41,37 +41,32 @@ See [server/README.md](server/README.md) for:
 
 ### 3. Docker & Environment Setup
 
-#### ⚠️ **IMPORTANT: Kafka Cluster ID Configuration**
-
-Before running `docker-compose up`, you must generate and configure a **Kafka Cluster ID**:
-
 ```bash
-# Generate a unique cluster ID
-docker run --rm confluentinc/cp-kafka:7.6.0 kafka-storage random-uuid
+cp .env.example .env
+docker run --rm confluentinc/cp-kafka:7.6.0 kafka-storage random-uuid   # generate a Kafka Cluster ID
 ```
-
-Copy the value and update your `.env` file:
-```env
-# Example
-KAFKA_CLUSTER_ID=zzY-gSWaQOCQXvkdiLgDmw
-```
-
-See [`.env.example`](.env.example) for all available configuration options.
-
-Then start the services:
+Paste the generated ID into `KAFKA_CLUSTER_ID` in `.env`, then start everything:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-#### Kafka Smoke Test
+That's it — defaults in `.env.example` (incl. `clinexa`/`clinexa` dev credentials for Postgres, Mongo, and Redis) just work. Services are opt-in via `COMPOSE_PROFILES` in `.env` (default: `kafka,postgres,mongo,redis,zipkin`); `mail-dev` has no profile and always starts. To run a subset:
+```bash
+docker compose --profile kafka --profile postgres up -d
+```
 
-Once the services are up, validate the Kafka setup end-to-end (container health, broker, topic creation, leader election, produce/consume round-trip, and cross-container listener) with:
+#### Smoke Tests
+
+Validate a running stack end-to-end with the scripts in [`_dev/`](_dev/):
 
 ```powershell
-.\_dev\kafka-smoke-test.ps1
+.\_dev\kafka-smoke-test.ps1 -NonInteractive   # broker, topic, produce/consume round-trip (drop -NonInteractive to pause and eyeball Kafka UI)
+.\_dev\postgres-smoke-test.ps1   # pg_isready, insert/select round-trip
+.\_dev\mongo-smoke-test.ps1      # ping, insert/find round-trip
+.\_dev\redis-smoke-test.ps1      # PING, SET/GET round-trip
+.\_dev\zipkin-smoke-test.ps1     # UI up, span POST/GET round-trip
 ```
-
-Defaults assume the container is named `clinexa_kafka`; pass `-ContainerName`, `-BootstrapHost`, etc. to override. See [_dev/kafka-smoke-test.ps1](_dev/kafka-smoke-test.ps1) for details.
+All check container health, cross-container network reachability, and accept override params — see each script for defaults.
 
 ---
 
@@ -83,6 +78,12 @@ clinexa/
 ├── CLAUDE.md                          # Internal: Claude Code guidance
 ├── .env.example                       # Environment template
 ├── docker-compose.yaml                # Services orchestration
+├── _dev/
+│   ├── kafka-smoke-test.ps1           # Kafka end-to-end smoke test
+│   ├── postgres-smoke-test.ps1        # Postgres end-to-end smoke test
+│   ├── mongo-smoke-test.ps1           # Mongo end-to-end smoke test
+│   ├── redis-smoke-test.ps1           # Redis end-to-end smoke test
+│   └── zipkin-smoke-test.ps1          # Zipkin end-to-end smoke test
 ├── _docs/
 │   └── clinexa-architecture.drawio.svg # System architecture diagram
 ├── client/                            # Angular 22 SPA
@@ -121,8 +122,8 @@ Open `server/` in an IDE with Maven support (e.g. IntelliJ IDEA) and run/build m
 
 ### Docker Services
 ```bash
-docker-compose up    # Start all services (Kafka, etc.)
-docker-compose down  # Stop all services
+docker compose up -d    # Start profiles listed in COMPOSE_PROFILES (.env)
+docker compose down     # Stop all services
 ```
 
 ---

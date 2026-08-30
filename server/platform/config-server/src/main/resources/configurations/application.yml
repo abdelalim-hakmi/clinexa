@@ -1,0 +1,16 @@
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka  # Shared default for every client that doesn't override it
+spring:
+  cloud:
+    config:
+      override.system-properties: false  # Let a client's own local properties win over Config Server values
+
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0  # Trace every request in dev (100%); lower this in production

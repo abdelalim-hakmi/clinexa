@@ -85,3 +85,7 @@ desktop.ini
 *.tmp
 *.pid
 *.seed
+
+# ---------- Disposable sandbox microservice (not real code) ----------
+server/sandbox/
+server/platform/config-server/src/main/resources/configurations/sandbox-service.yml

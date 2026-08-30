@@ -1,0 +1,12 @@
+spring:
+  profiles:
+    active: native  # Serve config from local files instead of a git backend
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/configurations  # Folder holding per-service and shared config files
+server:
+  port: 8888  # Default port every client's spring.config.import points to

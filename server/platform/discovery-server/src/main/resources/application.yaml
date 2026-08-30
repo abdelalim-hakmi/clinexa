@@ -1,0 +1,5 @@
+spring:
+  config:
+    import: optional:configserver:http://localhost:8888  # "optional:" so boot doesn't fail if Config Server isn't up yet
+  application:
+    name: discovery-service  # Must match configurations/discovery-service.yml on the Config Server

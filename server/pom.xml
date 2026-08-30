@@ -66,6 +66,8 @@
 
     <modules>
         <module>shared</module>
+        <module>platform/config-server</module>
+        <module>platform/discovery-server</module>
     </modules>
 
 </project>

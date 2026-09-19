@@ -26,6 +26,8 @@
 
     <dependencyManagement>
         <dependencies>
+
+            <!-- Spring Boot -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -34,6 +36,7 @@
                 <scope>import</scope>
             </dependency>
 
+            <!-- Spring Cloud -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -41,6 +44,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -66,8 +70,11 @@
 
     <modules>
         <module>shared</module>
+
         <module>platform/config-server</module>
         <module>platform/discovery-server</module>
+        <module>platform/api-gateway</module>
+
     </modules>
 
 </project>

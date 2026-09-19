@@ -1,0 +1,13 @@
+server:
+  port: 9000  # Clear of every docker-compose port (8080 kafka-ui, 8081 mongo-express, 8090 sandbox-service, ...)
+
+spring:
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: sandbox-service
+              uri: lb://sandbox-service  # Logical name resolved via Eureka, never a hardcoded port
+              predicates:
+                - Path=/api/sandbox/**  # Matches sandbox-service's actual controllers (/api/sandbox/config, /discovery, /kafka, /mongo, /postgres, /mail)

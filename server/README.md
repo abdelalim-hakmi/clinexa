@@ -59,6 +59,22 @@ Replace `shared` with any module name. Adjust the `-pl` flag as new modules are 
 mvn clean install
 ```
 
+## Running the Services
+
+Start the Docker infra first (`docker compose up -d` from the repo root), then the services **in this order**:
+
+1. `config-server` (8888)
+2. `discovery-server` (8761)
+3. `sandbox-service` (8090)
+4. `api-gateway` (9000) — last, it resolves routes from Eureka
+
+Wait ~30 s after the gateway starts, then check:
+```bash
+curl http://localhost:9000/api/sandbox/config/test-property   # -> hello-from-config-server
+```
+
+More (config priority, gateway routes, tracing): [`../_docs/architecture/configuration.md`](../_docs/architecture/configuration.md).
+
 ## Testing
 
 ### Run all tests

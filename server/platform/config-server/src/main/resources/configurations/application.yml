@@ -14,3 +14,6 @@ management:
   tracing:
     sampling:
       probability: 1.0  # Trace every request in dev (100%); lower this in production
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans

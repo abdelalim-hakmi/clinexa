@@ -190,8 +190,8 @@ The backend is designed as a **Spring Cloud microservices system**. See `_docs/c
 - **platform/discovery-server** — Eureka service discovery (8761)
 - **platform/api-gateway** — Public API Gateway (9000), servlet variant (ADR `0004`)
 - **sandbox/sandbox-service** — Disposable integration sandbox (8090), outside the parent POM
-- **services/identity-service** — Accounts, clinics, members, roles (8100). Postgres `clinexa_identity`, schema owned by Liquibase. Owns the one sign-in route and serves the members to every other service over the internal API (`SEC-10`).
-- **services/care-service** — CMP-CARE **skeleton** (`SEC-14`), 8101, Postgres `clinexa_care`. Two business tables, two reads, an append-only access log. Zero write route, zero UI; any addition before V1 requires an ADR. It exists so the tenant-isolation and RBAC rules are proved on a real tenant service
+- **services/identity-service** — Accounts, clinics, members, roles (8100). Postgres schema `identity` (default `clinexa` database), tables owned by Liquibase. Owns the one sign-in route and serves the members to every other service over the internal API (`SEC-10`).
+- **services/care-service** — CMP-CARE **skeleton** (`SEC-14`), 8101, Postgres schema `care` (default `clinexa` database). Two business tables, two reads, an append-only access log. Zero write route, zero UI; any addition before V1 requires an ADR. It exists so the tenant-isolation and RBAC rules are proved on a real tenant service
 
 ### Planned Modules
 Domain services, following the decomposition ratified in the Clinexa-vault on 2026-09-21 (`design-v1/2-HLD/10-HLD-vue-densemble.md` §3.1, `DA-01`). A service is scaffolded only when the version that needs it starts:

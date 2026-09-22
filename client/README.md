@@ -95,15 +95,36 @@ client/
 ├── angular.json           # Angular CLI configuration
 ├── tsconfig.json          # TypeScript configuration
 ├── .yarnrc.yml            # Yarn configuration (node-modules linker)
+├── proxy.conf.json        # Dev proxy: /api → api-gateway (:9000) — see the warning below
 ├── src/
 │   ├── main.ts            # Application entry point
 │   ├── styles.css         # Global styles
 │   ├── index.html         # HTML shell
 │   └── app/
-│       ├── app.component.* # Root component
-│       └── ...
+│       ├── app.config.ts  # Providers — router, HttpClient, XSRF
+│       ├── app.routes.ts  # /login (public) and / (behind authGuard)
+│       ├── auth/          # The only place that talks about authentication
+│       │   ├── auth.service.ts    # Login, logout, "who am I" — stores no token
+│       │   ├── auth.guard.ts      # Protects the EXPERIENCE, never the data
+│       │   ├── auth.models.ts     # Me, ClinicAssignment, Problem (RFC 7807)
+│       │   └── login/             # The login screen
+│       └── home/          # Post-login screen: identity + clinics and roles
 └── dist/                  # Production build (generated)
 ```
+
+### Two rules the front-end does not get to bend
+
+**The guard protects the experience, not the data.** `auth.guard.ts` keeps a signed-out visitor from
+watching a screen fill up with `401`s. It protects nothing: the data is protected server-side — the
+filter chain, the tenant filter (L1) and `@TenantId` — and would stay protected if that file were
+deleted. A route guard is bypassed by opening the developer tools; that is exactly why security is
+not there. Details: [`../_docs/security/`](../_docs/security/).
+
+**The SPA and the API must be same-origin.** Angular attaches the `X-XSRF-TOKEN` header only on an
+identical origin — otherwise it attaches nothing at all and **every `POST` answers `403`** with no
+usable message. In development, `proxy.conf.json` guarantees it: the browser only ever talks to
+`localhost:4200`. Changing that proxy, or calling the gateway directly from the browser, breaks
+sign-in in a way that looks like anything but a proxy problem.
 
 ## Scripts
 

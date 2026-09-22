@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * Reads a service's {@code matrice.csv} — the machine-readable form of
- * {@code _docs/securite/matrice-autorisation.md}.
+ * {@code _docs/security/authorization-matrix.md}.
  * <p>
  * It exists so that F2 is a <strong>parameterised</strong> test with one execution per cell, rather
  * than a hand-written test per endpoint: written by hand, cells get forgotten, and the ones that get

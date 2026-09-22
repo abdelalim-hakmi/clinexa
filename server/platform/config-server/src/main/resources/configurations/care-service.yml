@@ -1,0 +1,19 @@
+server:
+  port: 8101  # Clear of every docker-compose port (8080 kafka-ui, 8081 mongo-express, 8090 sandbox-service, 9411 zipkin, 1080 maildev, 5540 redisinsight) and of identity-service (8100)
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/clinexa_care # DB created in postgres-initdb/01-create-databases.sh
+    username: app_user # Role defined once in 01-create-databases.sh
+    password: ${POSTGRES_PASSWORD:clinexa} # Matches POSTGRES_PASSWORD in .env — dev only
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Liquibase owns the schema; Hibernate only checks the entities match it, never alters it
+    open-in-view: false  # No lazy loading in controllers — keeps DB access inside services
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml  # Same file as src/main/resources/db/changelog/ in care-service
+
+clinexa:
+  security:
+    identity-uri: lb://identity-service  # SEC-10 / O3: the logical service, resolved via Eureka — never a host and a port
+    assignments-timeout: 2s  # Short on purpose: identity-service unreachable must become a fast 403, not a pile-up (criterion 12)

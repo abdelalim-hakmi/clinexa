@@ -1,0 +1,128 @@
+# Care schema — the SEC-14 skeleton only (LLD 20 §4.1): patient_record and clinical_record.
+# Everything else of CMP-CARE (consultation, document, prescription, ...) arrives with V1.
+#
+# Every constraint of guide 3.5 is written in this FIRST migration, never added later:
+#   - clinic_id NOT NULL on every tenant table — a NULL row is invisible to the filter, so it
+#     belongs to everyone or to no one;
+#   - unique indexes that INCLUDE clinic_id — a global uniqueness would leak "this patient exists
+#     somewhere else", which is exactly what two unlinked records of the same person must not do;
+#   - COMPOSITE foreign keys (id, clinic_id) — so the database itself refuses a clinical volet of
+#     clinic A attached to a record of clinic B, even if the application has a bug;
+#   - a leading index on clinic_id — without it performance collapses after a handful of clinics.
+#
+# The composite FK is stricter than the DDL of LLD 20 §4.1, which has a plain one: it needs
+# UNIQUE (id, clinic_id) on patient_record, added below. That is the deliberate difference guide 3.6
+# asks for — the last line of defence, turning an application bug into an insert error rather than a
+# leak.
+databaseChangeLog:
+  - changeSet:
+      id: 001-01-patient-record
+      author: clinexa
+      comment: >
+        Administrative volet: identity and contact, readable by RECEPTIONIST and PRACTITIONER.
+        Physically separate from the clinical volet (LLD 20 §4.1) so the route separation of I5
+        cannot be undone by a mapping accident.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE patient_record (
+                  id             uuid PRIMARY KEY,
+                  clinic_id      uuid NOT NULL,
+                  last_name      text NOT NULL,
+                  first_name     text NOT NULL,
+                  date_of_birth  date,
+                  phone          text,
+                  coverage       text,
+                  status         text NOT NULL DEFAULT 'ACTIVE'
+                                 CHECK (status IN ('ACTIVE','MERGED','ANONYMIZED')),
+                  merged_into    uuid,
+                  created_at     timestamptz NOT NULL DEFAULT now(),
+                  created_by     uuid,
+                  updated_at     timestamptz,
+                  updated_by     uuid,
+                  version        integer NOT NULL DEFAULT 0,
+                  -- Target of the composite FKs: this is what makes (id, clinic_id) referable.
+                  CONSTRAINT uq_patient_record_id_clinic UNIQUE (id, clinic_id),
+                  -- A merge target must be in the SAME clinic. A plain REFERENCES patient_record(id)
+                  -- would let a record of A point at a record of B, which is exactly the link guide
+                  -- 3.5 forbids between tenant tables. NULL (never merged) is not checked.
+                  CONSTRAINT fk_patient_record_merged_into
+                      FOREIGN KEY (merged_into, clinic_id) REFERENCES patient_record (id, clinic_id),
+                  -- No clinic can have this id (see TenantContext.NONE): a write made with no tenant
+                  -- context carries it, and this is where it is refused. Identity has an FK to clinic
+                  -- for that; care has no clinic table (another database), so the CHECK plays the role.
+                  CONSTRAINT ck_patient_record_clinic CHECK (clinic_id <> '00000000-0000-0000-0000-000000000000')
+              );
+
+              -- RG-16: one person, one active record PER CLINIC. Scoped by clinic_id on purpose —
+              -- the same person in two clinics is two records, and that is not a duplicate.
+              CREATE UNIQUE INDEX uq_patient_record_identification
+                  ON patient_record (clinic_id, phone, date_of_birth)
+                  WHERE status = 'ACTIVE';
+
+              -- Leading clinic_id, for the rows the partial index above does not cover.
+              CREATE INDEX idx_patient_record_clinic ON patient_record (clinic_id);
+      rollback:
+        - sql:
+            sql: DROP TABLE patient_record;
+
+  - changeSet:
+      id: 001-02-clinical-record
+      author: clinexa
+      comment: >
+        Clinical volet: readable by PRACTITIONER only. Its own clinic_id — redundant with the
+        patient record's on purpose, since that is what lets @TenantId filter it without a join, and
+        what the composite FK checks for consistency.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE clinical_record (
+                  record_id         uuid PRIMARY KEY,
+                  clinic_id         uuid NOT NULL,
+                  medical_history   text,
+                  surgical_history  text,
+                  family_history    text,
+                  created_at        timestamptz NOT NULL DEFAULT now(),
+                  created_by        uuid,
+                  updated_at        timestamptz,
+                  updated_by        uuid,
+                  version           integer NOT NULL DEFAULT 0,
+                  -- The line that makes a cross-clinic link impossible in the database itself.
+                  CONSTRAINT fk_clinical_record_patient_record
+                      FOREIGN KEY (record_id, clinic_id) REFERENCES patient_record (id, clinic_id),
+                  CONSTRAINT ck_clinical_record_clinic CHECK (clinic_id <> '00000000-0000-0000-0000-000000000000')
+              );
+
+              CREATE INDEX idx_clinical_record_clinic ON clinical_record (clinic_id);
+      rollback:
+        - sql:
+            sql: DROP TABLE clinical_record;
+
+  - changeSet:
+      id: 001-03-outbox-event
+      author: clinexa
+      comment: >
+        Transactional outbox, identical in every service database (LLD 20 §7). Empty at the
+        foundation on the care side — care publishes nothing yet — but the table belongs to the
+        service template, not to the feature that first uses it.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE outbox_event (
+                  id           uuid PRIMARY KEY,
+                  topic        text NOT NULL,
+                  key          text NOT NULL,   -- partition key = clinic_id
+                  payload      jsonb NOT NULL,
+                  clinic_id    uuid NOT NULL,
+                  trace_id     text,
+                  created_at   timestamptz NOT NULL DEFAULT now(),
+                  published_at timestamptz,
+                  CONSTRAINT ck_outbox_event_clinic CHECK (clinic_id <> '00000000-0000-0000-0000-000000000000')
+              );
+
+              CREATE INDEX idx_outbox_event_unpublished
+                  ON outbox_event (created_at)
+                  WHERE published_at IS NULL;
+      rollback:
+        - sql:
+            sql: DROP TABLE outbox_event;

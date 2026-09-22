@@ -36,9 +36,7 @@ describe('AuthService', () => {
 
   /** The CSRF bootstrap that login does first. */
   function serveToken(): void {
-    http
-      .expectOne('/api/v1/auth/csrf')
-      .flush({ headerName: 'X-XSRF-TOKEN', token: 'test-token' });
+    http.expectOne('/api/v1/auth/csrf').flush({ headerName: 'X-XSRF-TOKEN', token: 'test-token' });
   }
 
   // The session cookie is opaque and HttpOnly: there is nothing to store client-side, and state

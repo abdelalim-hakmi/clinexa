@@ -1,0 +1,40 @@
+# `dev` profile of identity-service — SEC-05.
+#
+# SEC-05 refused a development profile WITHOUT security, and replaced it with provisioned
+# accounts. That difference is the whole point of the decision: here, the filter chain, CSRF,
+# L1 and the matrix are exactly the ones used in production. The profile opens nothing; it seeds data.
+#
+# The only line that changes is the Liquibase changelog: `db.changelog-dev.yaml` runs the master
+# changelog THEN the seed of test accounts. In production, `identity-service.yml` stays on the master
+# changelog and these accounts don't exist.
+#
+# Start with this profile:
+#   -Dspring.profiles.active=dev     (or SPRING_PROFILES_ACTIVE=dev)
+#
+# Get a test session in under a minute: `_dev/session-smoke-test.ps1`.
+# Accounts (shared password `Clinexa!2026`):
+#   alice@clinic-a.ma   PRACTITIONER   clinic A
+#   bob@clinic-a.ma     RECEPTIONIST   clinic A
+#   carol@clinic-a.ma   CLINIC_ADMIN   clinic A
+#   dan@clinic-b.ma     PRACTITIONER   clinic B
+#   erin@clinexa.ma      PRACTITIONER@A + RECEPTIONIST@B   <- the one that reveals tenant bugs
+spring:
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-dev.yaml
+    contexts: dev  # The seed changesets carry `context: dev`: two locks, not one
+
+# The session cookie is `Secure` everywhere (application.yml) EXCEPT here: in dev the browser and
+# `_dev/session-smoke-test.ps1` talk to localhost over http, and an HTTP client won't send a
+# `Secure` cookie over http. Only identity-service issues this cookie, so it's the only place to relax.
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+logging:
+  level:
+    # Guide 5.9 — turn this on once, to SEE the filter chain on a real request. It's the
+    # one moment in the project where the difference between authentication and authorization
+    # becomes concrete. Left at INFO by default: at DEBUG, the trace is dense and becomes daily noise.
+    org.springframework.security: INFO

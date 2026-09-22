@@ -11,7 +11,7 @@
     <packaging>pom</packaging>
 
     <name>Clinexa Parent</name>
-    <description>POM parent multi-module pour les microservices Clinexa</description>
+    <description>Multi-module parent POM for the Clinexa microservices</description>
 
     <properties>
         <java.version>25</java.version>
@@ -22,6 +22,9 @@
 
         <spring-boot.version>4.1.1</spring-boot.version>
         <spring-cloud.version>2025.1.2</spring-cloud.version>
+
+        <!-- Not managed by the Boot BOM. Justified by the inventory tests INV-2..INV-6 alone. -->
+        <archunit.version>1.4.1</archunit.version>
     </properties>
 
     <dependencyManagement>
@@ -55,6 +58,26 @@
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
+                    <!--
+                        This project does NOT inherit from spring-boot-starter-parent, which is where the
+                        repackage execution normally comes from. Without it, `mvn package` produces a plain
+                        jar with no main manifest attribute — it builds fine and refuses to start, which is
+                        the kind of gap only found when deploying.
+                    -->
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <!-- Pinned: shared publishes a test-jar, and an unpinned plugin version is not reproducible. -->
+                    <version>3.4.1</version>
                 </plugin>
 
                 <plugin>
@@ -62,6 +85,9 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <release>${maven.compiler.release}</release>
+                        <!-- Spring reads @PathVariable / @RequestParam names from the bytecode; the Boot starter
+                             parent sets this by default and this project does not inherit from it. -->
+                        <parameters>true</parameters>
                     </configuration>
                 </plugin>
             </plugins>
@@ -69,11 +95,17 @@
     </build>
 
     <modules>
+
         <module>shared</module>
 
+        <!-- Platform services -->
         <module>platform/config-server</module>
         <module>platform/discovery-server</module>
         <module>platform/api-gateway</module>
+
+        <!-- Business services -->
+        <module>services/identity-service</module>
+        <module>services/care-service</module>
 
     </modules>
 

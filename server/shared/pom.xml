@@ -11,10 +11,85 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>shared</artifactId>
+    <artifactId>clinexa-shared</artifactId>
+    <name>Clinexa Shared</name>
+    <description>
+        Security primitives shared by every service (SEC-11): CurrentUser, TenantContext,
+        the AssignmentsProvider contract, the base tenant resolver and the filter-chain builder.
+        Nothing else — no business type, no per-service authorization matrix (guide 4.5).
+    </description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencies>
+        <!--
+            Everything is `provided`: shared compiles against these APIs but imposes no version
+            and no starter on the services that depend on it (runbook session 3.1). Each service
+            brings its own starters; shared only borrows the types.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!--
+            ArchUnit, for the inventory rules published in the test-jar (INV-2..INV-6). They are
+            written once here rather than twice in the services: a rule that exists in two copies
+            drifts, and these are the rules meant to outlive whoever wrote them.
+        -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Tests of the primitives themselves (the fixtures below need none of it) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                SecurityFixtures (guide 10.1) lives in src/test/java and is consumed by
+                identity-service and care-service as a test-jar: one reference dataset,
+                one set of UUIDs, shared by every security test of every service.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

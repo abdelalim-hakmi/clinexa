@@ -8,6 +8,8 @@
 		<groupId>com.clinexa</groupId>
 		<artifactId>clinexa-parent</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
+		<!-- Two levels below server/: the default ../pom.xml points at platform/, where there is none. -->
+		<relativePath>../../pom.xml</relativePath>
 	</parent>
 
 	<artifactId>config-server</artifactId>

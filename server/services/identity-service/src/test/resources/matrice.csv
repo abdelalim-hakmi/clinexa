@@ -1,0 +1,33 @@
+# Authorization matrix of identity-service — transcription of _docs/securite/matrice-autorisation.md.
+# Data source of F2 (IdentityAuthorizationMatrixTest) and of INV-1 (IdentityInventoryTest).
+# Path variables are written {}: patterns are compared, not variable names.
+# ANONYMOUS = request with no session. allowed=false => 401 for ANONYMOUS, 403 otherwise.
+route;verb;role;allowed
+/api/v1/auth/login;POST;ANONYMOUS;true
+/api/v1/auth/login;POST;RECEPTIONIST;true
+/api/v1/auth/login;POST;PRACTITIONER;true
+/api/v1/auth/login;POST;CLINIC_ADMIN;true
+/api/v1/auth/csrf;GET;ANONYMOUS;true
+/api/v1/auth/csrf;GET;RECEPTIONIST;true
+/api/v1/auth/csrf;GET;PRACTITIONER;true
+/api/v1/auth/csrf;GET;CLINIC_ADMIN;true
+/api/v1/auth/logout;POST;ANONYMOUS;false
+/api/v1/auth/logout;POST;RECEPTIONIST;true
+/api/v1/auth/logout;POST;PRACTITIONER;true
+/api/v1/auth/logout;POST;CLINIC_ADMIN;true
+/api/v1/me;GET;ANONYMOUS;false
+/api/v1/me;GET;RECEPTIONIST;true
+/api/v1/me;GET;PRACTITIONER;true
+/api/v1/me;GET;CLINIC_ADMIN;true
+/api/v1/clinics/{}/members;GET;ANONYMOUS;false
+/api/v1/clinics/{}/members;GET;RECEPTIONIST;false
+/api/v1/clinics/{}/members;GET;PRACTITIONER;false
+/api/v1/clinics/{}/members;GET;CLINIC_ADMIN;true
+/api/v1/clinics/{}/members/{};GET;ANONYMOUS;false
+/api/v1/clinics/{}/members/{};GET;RECEPTIONIST;false
+/api/v1/clinics/{}/members/{};GET;PRACTITIONER;false
+/api/v1/clinics/{}/members/{};GET;CLINIC_ADMIN;true
+/internal/accounts/{}/assignments;GET;ANONYMOUS;true
+/internal/accounts/{}/assignments;GET;RECEPTIONIST;true
+/internal/accounts/{}/assignments;GET;PRACTITIONER;true
+/internal/accounts/{}/assignments;GET;CLINIC_ADMIN;true

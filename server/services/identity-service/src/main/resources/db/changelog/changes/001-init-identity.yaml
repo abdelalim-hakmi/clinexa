@@ -1,0 +1,255 @@
+# Identity schema, whole of CMP-ID (LLD 20 §2 + §7 outbox) — guide step 3.6.
+# Order matters: reference data (city, specialty) → account → clinic → member → practitioner → clinic-owned tables → outbox.
+# Reference rows (cities, specialties) are NOT seeded here: separate idempotent changelog (LLD 20 §10).
+databaseChangeLog:
+  - changeSet:
+      id: 001-01-city
+      author: clinexa
+      comment: Reference data. Cached read-only by Hibernate (City entity), changed only by migrations.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE city (
+                  id   uuid PRIMARY KEY,
+                  slug text NOT NULL,
+                  name text NOT NULL,
+                  CONSTRAINT uq_city_slug UNIQUE (slug)
+              );
+      rollback:
+        - sql:
+            sql: DROP TABLE city;
+
+  - changeSet:
+      id: 001-02-specialty
+      author: clinexa
+      comment: Reference data. Cached read-only by Hibernate (Specialty entity), changed only by migrations.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE specialty (
+                  id    uuid PRIMARY KEY,
+                  slug  text NOT NULL,
+                  label text NOT NULL,
+                  CONSTRAINT uq_specialty_slug UNIQUE (slug)
+              );
+      rollback:
+        - sql:
+            sql: DROP TABLE specialty;
+
+  - changeSet:
+      id: 001-03-account
+      author: clinexa
+      comment: Global identity. No `role` column here — the role lives on member (invariant I3).
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE account (
+                  id            uuid PRIMARY KEY,
+                  email         text NOT NULL,
+                  password_hash text NOT NULL,
+                  last_name     text NOT NULL,
+                  first_name    text NOT NULL,
+                  phone         text,
+                  status        text NOT NULL DEFAULT 'ACTIVE'
+                                CHECK (status IN ('ACTIVE','INACTIVE')),
+                  created_at    timestamptz NOT NULL DEFAULT now(),
+                  created_by    uuid,
+                  updated_at    timestamptz,
+                  updated_by    uuid,
+                  version       integer NOT NULL DEFAULT 0
+              );
+              CREATE UNIQUE INDEX uq_account_email ON account (lower(email));
+      rollback:
+        - sql:
+            sql: DROP TABLE account;
+
+  - changeSet:
+      id: 001-04-clinic
+      author: clinexa
+      comment: The tenant. Its own id is the discriminant, so no clinic_id column.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE clinic (
+                  id          uuid PRIMARY KEY,
+                  legal_name  text NOT NULL,
+                  ice         text NOT NULL,
+                  tax_id      text,
+                  address     text,
+                  city_id     uuid REFERENCES city(id),
+                  timezone    text NOT NULL DEFAULT 'Africa/Casablanca',
+                  status      text NOT NULL DEFAULT 'ACTIVE'
+                              CHECK (status IN ('ACTIVE','INACTIVE')),
+                  created_at  timestamptz NOT NULL DEFAULT now(),
+                  created_by  uuid,
+                  updated_at  timestamptz,
+                  updated_by  uuid,
+                  version     integer NOT NULL DEFAULT 0,
+                  CONSTRAINT uq_clinic_ice UNIQUE (ice)
+              );
+      rollback:
+        - sql:
+            sql: DROP TABLE clinic;
+
+  - changeSet:
+      id: 001-05-member
+      author: clinexa
+      comment: >
+        Assignment account x clinic, carries the role (I3). Only tenant table exempted
+        from @TenantId (SEC-13): clinic_id NOT NULL, leading index, UNIQUE (id, clinic_id)
+        for composite FKs and (id, clinic_id) access.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE member (
+                  id          uuid PRIMARY KEY,
+                  account_id  uuid NOT NULL REFERENCES account(id),
+                  clinic_id   uuid NOT NULL REFERENCES clinic(id),
+                  role        text NOT NULL
+                              CHECK (role IN ('RECEPTIONIST','PRACTITIONER','CLINIC_ADMIN')),
+                  start_date  date NOT NULL,
+                  end_date    date,
+                  status      text NOT NULL DEFAULT 'ACTIVE'
+                              CHECK (status IN ('ACTIVE','REVOKED')),
+                  created_at  timestamptz NOT NULL DEFAULT now(),
+                  created_by  uuid NOT NULL,
+                  updated_at  timestamptz,
+                  updated_by  uuid,
+                  version     integer NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_member_end_date CHECK (end_date IS NULL OR end_date >= start_date),
+                  CONSTRAINT uq_member_id_clinic UNIQUE (id, clinic_id)
+              );
+
+              -- An account may cumulate roles in one clinic (FR-CAB-03), never the same active role twice.
+              CREATE UNIQUE INDEX uq_member_role_active
+                  ON member (clinic_id, account_id, role)
+                  WHERE status = 'ACTIVE';
+
+              -- L1 reads by account_id before the tenant exists.
+              CREATE INDEX idx_member_account ON member (account_id);
+
+              -- Leading clinic_id for every status: the unique index above only covers ACTIVE rows.
+              CREATE INDEX idx_member_clinic ON member (clinic_id);
+      rollback:
+        - sql:
+            sql: DROP TABLE member;
+
+  - changeSet:
+      id: 001-06-practitioner
+      author: clinexa
+      comment: >
+        Global like account (no clinic_id): an account may practise in several clinics, the
+        PRACTITIONER role of each stays on member. practitioner_specialty is the join table of the M:N.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE practitioner (
+                  id               uuid PRIMARY KEY,
+                  account_id       uuid NOT NULL REFERENCES account(id),
+                  license_number   text NOT NULL,
+                  languages        text[] NOT NULL DEFAULT '{}',
+                  years_experience integer CHECK (years_experience >= 0),
+                  status           text NOT NULL DEFAULT 'ACTIVE'
+                                   CHECK (status IN ('ACTIVE','INACTIVE')),
+                  created_at       timestamptz NOT NULL DEFAULT now(),
+                  created_by       uuid,
+                  updated_at       timestamptz,
+                  updated_by       uuid,
+                  version          integer NOT NULL DEFAULT 0,
+                  CONSTRAINT uq_practitioner_account UNIQUE (account_id),
+                  CONSTRAINT uq_practitioner_license_number UNIQUE (license_number)
+              );
+
+              CREATE TABLE practitioner_specialty (
+                  practitioner_id uuid NOT NULL REFERENCES practitioner(id),
+                  specialty_id    uuid NOT NULL REFERENCES specialty(id),
+                  PRIMARY KEY (practitioner_id, specialty_id)
+              );
+              CREATE INDEX idx_practitioner_specialty_specialty ON practitioner_specialty (specialty_id);
+      rollback:
+        - sql:
+            sql: |
+              DROP TABLE practitioner_specialty;
+              DROP TABLE practitioner;
+
+  - changeSet:
+      id: 001-07-consultation-reason
+      author: clinexa
+      comment: Tenant table (@TenantId). No physical delete (SRS-D-06), active archives a reason.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE consultation_reason (
+                  id                uuid PRIMARY KEY,
+                  clinic_id         uuid NOT NULL REFERENCES clinic(id),
+                  label             text NOT NULL,
+                  duration_minutes  integer NOT NULL CHECK (duration_minutes > 0),
+                  indicative_price  numeric(12,2) CHECK (indicative_price >= 0),
+                  active            boolean NOT NULL DEFAULT true,
+                  created_at        timestamptz NOT NULL DEFAULT now(),
+                  created_by        uuid,
+                  updated_at        timestamptz,
+                  updated_by        uuid,
+                  version           integer NOT NULL DEFAULT 0
+              );
+              CREATE UNIQUE INDEX uq_consultation_reason_label_active
+                  ON consultation_reason (clinic_id, label)
+                  WHERE active;
+
+              -- Leading clinic_id for archived reasons too: the unique index above only covers active rows.
+              CREATE INDEX idx_consultation_reason_clinic ON consultation_reason (clinic_id);
+      rollback:
+        - sql:
+            sql: DROP TABLE consultation_reason;
+
+  - changeSet:
+      id: 001-08-closure-period
+      author: clinexa
+      comment: Tenant table (@TenantId). Feeds slot generation (FR-CAB-05). `active` cancels a period without deleting it.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE closure_period (
+                  id          uuid PRIMARY KEY,
+                  clinic_id   uuid NOT NULL REFERENCES clinic(id),
+                  start_date  date NOT NULL,
+                  end_date    date NOT NULL,
+                  label       text,
+                  active      boolean NOT NULL DEFAULT true,
+                  created_at  timestamptz NOT NULL DEFAULT now(),
+                  created_by  uuid,
+                  updated_at  timestamptz,
+                  updated_by  uuid,
+                  version     integer NOT NULL DEFAULT 0,
+                  CONSTRAINT ck_closure_period_end_date CHECK (end_date >= start_date)
+              );
+              CREATE INDEX idx_closure_period_clinic_start ON closure_period (clinic_id, start_date);
+      rollback:
+        - sql:
+            sql: DROP TABLE closure_period;
+
+  - changeSet:
+      id: 001-09-outbound-event
+      author: clinexa
+      comment: Transactional outbox, identical in every service database (LLD 20 §7, guide 8.5).
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE outbound_event (
+                  id             uuid PRIMARY KEY,
+                  topic          text NOT NULL,
+                  partition_key  text NOT NULL,   -- partition key = clinic_id
+                  payload        jsonb NOT NULL,
+                  clinic_id      uuid NOT NULL,
+                  trace_id       text,
+                  created_at     timestamptz NOT NULL DEFAULT now(),
+                  published_at   timestamptz
+              );
+
+              -- Partial: the relay only ever scans unpublished rows.
+              CREATE INDEX idx_outbox_to_publish
+                  ON outbound_event (created_at)
+                  WHERE published_at IS NULL;
+      rollback:
+        - sql:
+            sql: DROP TABLE outbound_event;

@@ -1,0 +1,12 @@
+# Authorization matrix of care-service — transcription of _docs/security/authorization-matrix.md.
+# Data source of F2 (CareAuthorizationMatrixTest) and of INV-1 (CareInventoryTest).
+# SEC-14 skeleton: two reads, zero writes. Any line added here requires an ADR.
+route;verb;role;allowed
+/api/v1/clinics/{}/records/{}/administrative;GET;ANONYMOUS;false
+/api/v1/clinics/{}/records/{}/administrative;GET;RECEPTIONIST;true
+/api/v1/clinics/{}/records/{}/administrative;GET;PRACTITIONER;true
+/api/v1/clinics/{}/records/{}/administrative;GET;CLINIC_ADMIN;false
+/api/v1/clinics/{}/records/{}/clinical;GET;ANONYMOUS;false
+/api/v1/clinics/{}/records/{}/clinical;GET;RECEPTIONIST;false
+/api/v1/clinics/{}/records/{}/clinical;GET;PRACTITIONER;true
+/api/v1/clinics/{}/records/{}/clinical;GET;CLINIC_ADMIN;false

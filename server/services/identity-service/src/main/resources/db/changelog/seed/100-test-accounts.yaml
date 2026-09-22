@@ -1,0 +1,98 @@
+# Test accounts — `dev` profile ONLY (SEC-05, guide 5.7).
+#
+# SEC-05 settled it: NO development profile without security. The reason is that such a profile
+# always ends up serving "just for this demo", and nobody knows anymore what is running with what.
+# What the team actually wanted was to be able to work without fighting the login screen — so it
+# gets exactly that, and nothing else: provisioned accounts, a security chain strictly identical to
+# production's.
+#
+# This changelog is loaded only by `db.changelog-dev.yaml`, itself designated by
+# `configurations/identity-service-dev.yml`. In production, `spring.liquibase.change-log` stays on
+# the master: these rows do not exist.
+#
+# The identifiers and the hash are EXACTLY those of SecurityFixtures (module `shared`, test-jar),
+# so a manual round trip in the application and an automated test talk about the same data.
+# `PasswordHashTest` checks on every build that the hash still matches `Clinexa!2026`.
+#
+# The fixture that matters: erin is PRACTITIONER in clinic A and RECEPTIONIST in clinic B.
+# She is the one who reveals tenant bugs, because she is legitimate on both sides with different
+# rights.
+databaseChangeLog:
+  - changeSet:
+      id: 100-01-test-clinics
+      author: clinexa
+      context: dev
+      comment: Two clinics, so that any cross test is writable without creating anything else.
+      changes:
+        - sql:
+            sql: |
+              INSERT INTO clinic (id, legal_name, ice, address, status) VALUES
+                  ('0193a000-0000-7000-8000-00000000000a', 'Clinic A — Dr. Alaoui', 'ICE-CABINET-A', 'Casablanca', 'ACTIVE'),
+                  ('0193a000-0000-7000-8000-00000000000b', 'Clinic B — Dr. Daoudi', 'ICE-CABINET-B', 'Rabat', 'ACTIVE')
+              ON CONFLICT (id) DO NOTHING;
+      rollback:
+        - sql:
+            sql: |
+              DELETE FROM clinic WHERE id IN ('0193a000-0000-7000-8000-00000000000a',
+                                               '0193a000-0000-7000-8000-00000000000b');
+
+  - changeSet:
+      id: 100-02-test-accounts
+      author: clinexa
+      context: dev
+      comment: >
+        One account per role, plus erin who belongs to both clinics. The hash is that of
+        "Clinexa!2026" — a development password, never used anywhere else.
+      changes:
+        - sql:
+            sql: |
+              INSERT INTO account (id, email, password_hash, last_name, first_name, status) VALUES
+                  ('0193a000-0001-7000-8000-0000000000a1', 'alice@clinic-a.ma',
+                   '$2a$10$8Y6iF6P.nfEDHiL054YKPuildZQ8IOAlV1dHmoAYivU6Culg5M/2a', 'Alaoui', 'Alice', 'ACTIVE'),
+                  ('0193a000-0001-7000-8000-0000000000b0', 'bob@clinic-a.ma',
+                   '$2a$10$8Y6iF6P.nfEDHiL054YKPuildZQ8IOAlV1dHmoAYivU6Culg5M/2a', 'Benali', 'Bob', 'ACTIVE'),
+                  ('0193a000-0001-7000-8000-0000000000c0', 'carol@clinic-a.ma',
+                   '$2a$10$8Y6iF6P.nfEDHiL054YKPuildZQ8IOAlV1dHmoAYivU6Culg5M/2a', 'Chraibi', 'Carol', 'ACTIVE'),
+                  ('0193a000-0001-7000-8000-0000000000d0', 'dan@clinic-b.ma',
+                   '$2a$10$8Y6iF6P.nfEDHiL054YKPuildZQ8IOAlV1dHmoAYivU6Culg5M/2a', 'Daoudi', 'Dan', 'ACTIVE'),
+                  ('0193a000-0001-7000-8000-0000000000e0', 'erin@clinexa.ma',
+                   '$2a$10$8Y6iF6P.nfEDHiL054YKPuildZQ8IOAlV1dHmoAYivU6Culg5M/2a', 'Elomari', 'Erin', 'ACTIVE')
+              ON CONFLICT (id) DO NOTHING;
+      rollback:
+        - sql:
+            sql: DELETE FROM account WHERE email LIKE '%@clinic-a.ma' OR email LIKE '%@clinic-b.ma' OR email = 'erin@clinexa.ma';
+
+  - changeSet:
+      id: 100-03-test-members
+      author: clinexa
+      context: dev
+      comment: >
+        The role lives here, never on the account (I3). erin holds two rows: two clinics, two
+        different roles, one account — which is what no "role on the account" model can express,
+        and why this fixture exists.
+      changes:
+        - sql:
+            sql: |
+              INSERT INTO member (id, account_id, clinic_id, role, start_date, status, created_by) VALUES
+                  ('0193a000-0002-7000-8000-0000000000a1', '0193a000-0001-7000-8000-0000000000a1',
+                   '0193a000-0000-7000-8000-00000000000a', 'PRACTITIONER', DATE '2026-01-01', 'ACTIVE',
+                   '0193a000-0001-7000-8000-0000000000a1'),
+                  ('0193a000-0002-7000-8000-0000000000b0', '0193a000-0001-7000-8000-0000000000b0',
+                   '0193a000-0000-7000-8000-00000000000a', 'RECEPTIONIST', DATE '2026-01-01', 'ACTIVE',
+                   '0193a000-0001-7000-8000-0000000000a1'),
+                  ('0193a000-0002-7000-8000-0000000000c0', '0193a000-0001-7000-8000-0000000000c0',
+                   '0193a000-0000-7000-8000-00000000000a', 'CLINIC_ADMIN', DATE '2026-01-01', 'ACTIVE',
+                   '0193a000-0001-7000-8000-0000000000a1'),
+                  ('0193a000-0002-7000-8000-0000000000d0', '0193a000-0001-7000-8000-0000000000d0',
+                   '0193a000-0000-7000-8000-00000000000b', 'PRACTITIONER', DATE '2026-01-01', 'ACTIVE',
+                   '0193a000-0001-7000-8000-0000000000d0'),
+                  ('0193a000-0002-7000-8000-0000000000e1', '0193a000-0001-7000-8000-0000000000e0',
+                   '0193a000-0000-7000-8000-00000000000a', 'PRACTITIONER', DATE '2026-01-01', 'ACTIVE',
+                   '0193a000-0001-7000-8000-0000000000a1'),
+                  ('0193a000-0002-7000-8000-0000000000e2', '0193a000-0001-7000-8000-0000000000e0',
+                   '0193a000-0000-7000-8000-00000000000b', 'RECEPTIONIST', DATE '2026-01-01', 'ACTIVE',
+                   '0193a000-0001-7000-8000-0000000000d0')
+              ON CONFLICT (id) DO NOTHING;
+      rollback:
+        - sql:
+            sql: DELETE FROM member WHERE id::text LIKE '0193a000-0002-7000-8000-%';

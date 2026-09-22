@@ -1,0 +1,23 @@
+server:
+  port: 8100
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/clinexa_identity # DB created in postgres-initdb/01-create-databases.sh
+    username: app_user # Role defined once in 01-create-databases.sh
+    password: ${POSTGRES_PASSWORD:clinexa} # Matches POSTGRES_PASSWORD in .env — dev only
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Liquibase owns the schema; Hibernate only checks the entities match it, never alters it
+    open-in-view: false  # No lazy loading in controllers — keeps DB access inside services
+    properties:
+      jakarta.persistence.sharedCache.mode: ENABLE_SELECTIVE  # Only entities annotated @Cache are cached — never Account / Member (revocation must be immediate)
+      hibernate:
+        cache:
+          use_second_level_cache: true  # Hibernate second-level cache (not the tenant layer "L2" of the security guide)
+          region.factory_class: jcache
+        javax.cache:
+          provider: org.ehcache.jsr107.EhcacheCachingProvider
+          missing_cache_strategy: create  # Regions are created on the fly with Ehcache defaults; reference data is tiny
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml  # Same file as src/main/resources/db/changelog/ in identity-service (also Boot's default)

@@ -16,8 +16,8 @@
 #
 # After merging this file, the check has to be made REQUIRED, which is a repository setting and not
 # a file: Settings → Branches → branch protection on `develop` and on `main` → "Require status
-# checks to pass before merging" → `build`. Until that box is ticked, a red PR is still mergeable
-# and criterion 13 is not met.
+# checks to pass before merging" → `build (server)` and `build (client)`. Until both are ticked, a
+# red PR is still mergeable and criterion 13 is not met.
 name: CI
 
 on:
@@ -112,14 +112,36 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: client/.nvmrc
 
       - name: Enable Yarn 4
         run: corepack enable
 
+      # Not setup-node's `cache: yarn`: it resolves Yarn from the repo root, where the runner's global
+      # Yarn 1 answers and points at the wrong cache folder. Asking Yarn 4 itself, from client/, is exact.
+      - name: Locate the Yarn cache
+        id: yarn-cache
+        working-directory: client
+        run: echo "dir=$(yarn config get cacheFolder)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Yarn
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.dir }}
+          key: yarn-${{ runner.os }}-${{ hashFiles('client/yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+
       - name: Install
         working-directory: client
         run: yarn install --immutable
+
+      - name: Lint
+        working-directory: client
+        run: yarn lint
+
+      - name: Check formatting
+        working-directory: client
+        run: yarn format:check
 
       - name: Test
         working-directory: client

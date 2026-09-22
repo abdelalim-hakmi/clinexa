@@ -69,9 +69,7 @@ export class AuthService {
     return this.http.get('/api/v1/auth/csrf').pipe(
       // A failure here must not hide the real error: let the POST speak for itself.
       catchError(() => of(null)),
-      switchMap(() =>
-        this.http.post<Me>('/api/v1/auth/login', { email, password }),
-      ),
+      switchMap(() => this.http.post<Me>('/api/v1/auth/login', { email, password })),
       tap((me) => {
         this._me.set(me);
         this._loaded.set(true);

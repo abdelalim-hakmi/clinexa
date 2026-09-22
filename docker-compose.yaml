@@ -80,10 +80,12 @@ services:
     environment:  # Environment variables for configuration
       POSTGRES_USER: '${POSTGRES_USER}'  # Username for the database
       POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'  # Password for the user
+      # No POSTGRES_DB and no init script: the image creates ONE database named after POSTGRES_USER
+      # (`clinexa`). Each service owns a schema in it and creates that schema itself on connection
+      # (configurations/<service>.yml) — nothing to replay, no `down -v` when a service is added.
       PGDATA: /var/lib/postgresql/data/pgdata  # Subdirectory, not the volume root (avoids initdb failing on a non-empty mount)
     volumes:  # Mount a persistent volume
       - postgres:/var/lib/postgresql/data  # Maps named volume `postgres` to Postgres data folder
-      - ./postgres-initdb:/docker-entrypoint-initdb.d/  # Init scripts, run by the Postgres entrypoint on first startup only (empty PGDATA)
     ports:
       - '${POSTGRES_PORT:-5432}:5432'  # Expose port: host ${POSTGRES_PORT} → container 5432 (PostgreSQL default)
     networks:

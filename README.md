@@ -55,6 +55,8 @@ That's it — defaults in `.env.example` (incl. `clinexa`/`clinexa` dev credenti
 docker compose --profile kafka --profile postgres up -d
 ```
 
+Postgres has no init script: the image creates a single database named after `POSTGRES_USER` (`clinexa`), and each service owns **one schema** in it (`identity`, `care`, …), which it creates itself on connection (`CREATE SCHEMA IF NOT EXISTS`, see `configurations/<service>.yml`). Adding a service never requires `docker compose down -v`.
+
 #### Web UIs
 
 | Service | URL | Login |
@@ -88,8 +90,6 @@ clinexa/
 ├── README.md                          # You are here
 ├── .env.example                       # Environment template
 ├── docker-compose.yaml                # Services orchestration
-├── postgres-initdb/
-│   └── 01-create-databases.sh         # Postgres init script (run on first container startup)
 ├── _dev/
 │   ├── docker-compose-fixes.md        # Dev-infra fix log
 │   ├── kafka-smoke-test.ps1           # Kafka end-to-end smoke test

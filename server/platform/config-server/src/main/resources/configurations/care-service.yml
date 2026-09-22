@@ -3,9 +3,12 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/clinexa_care # DB created in postgres-initdb/01-create-databases.sh
-    username: app_user # Role defined once in 01-create-databases.sh
+    # The image's default database (named after POSTGRES_USER) — the service owns the `care` schema in it.
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/clinexa?currentSchema=care
+    username: ${POSTGRES_USER:clinexa} # Matches POSTGRES_USER in .env — dev only
     password: ${POSTGRES_PASSWORD:clinexa} # Matches POSTGRES_PASSWORD in .env — dev only
+    hikari:
+      connection-init-sql: CREATE SCHEMA IF NOT EXISTS care # Idempotent: a fresh volume needs no init script
   jpa:
     hibernate:
       ddl-auto: validate  # Liquibase owns the schema; Hibernate only checks the entities match it, never alters it

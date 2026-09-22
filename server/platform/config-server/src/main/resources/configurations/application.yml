@@ -9,6 +9,39 @@ spring:
     config:
       override.system-properties: false  # Let a client's own local properties win over Config Server values
 
+  # ---------------------------------------------------------------------------------------------
+  # Session — SEC-01. One opaque session cookie, one Redis, read by EVERY service.
+  #
+  # It lives here rather than in each service's file for a reason: the services must agree on the
+  # namespace and the cookie down to the character, or the same cookie stops being the same session
+  # from one service to the next — and the failure looks like a random 401 rather than a config
+  # mismatch. The gateway forwards the cookie untouched and reads nothing: it is a router, not a
+  # trust perimeter, so each service resolves its own session and stays protected when reached
+  # directly.
+  #
+  # An opaque cookie, not a self-contained token: that is what makes a revocation effective on the
+  # next request instead of at the token's expiry. The counterpart — CSRF, mandatory — is wired in
+  # the shared filter-chain builder.
+  # ---------------------------------------------------------------------------------------------
+  data:
+    redis:
+      host: ${REDIS_HOST_LOCAL:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:clinexa}
+  session:
+    redis:
+      namespace: clinexa:session  # Identical everywhere: this is what makes the session shared
+    timeout: 8h  # A working day; a revoked member stops working on the next request regardless
+
+server:
+  servlet:
+    session:
+      cookie:
+        name: CLINEXA_SESSION
+        http-only: true   # Unreadable by JavaScript — an XSS cannot exfiltrate the session
+        same-site: lax    # Not sent on a cross-site POST; the CSRF token covers the rest
+        secure: true      # Guide 5.2. The safe value is the default; dev opts out in identity-service-dev.yml
+        path: /
 
 management:
   tracing:

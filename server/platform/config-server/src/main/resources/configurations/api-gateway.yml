@@ -1,13 +1,37 @@
 server:
   port: 9000  # Clear of every docker-compose port (8080 kafka-ui, 8081 mongo-express, 8090 sandbox-service, ...)
 
+# The gateway routes, and does nothing else: no business logic, no authorization rule, no header it
+# would inject on the services' behalf. It forwards the session cookie untouched and each service
+# resolves that session itself — so a service reached directly, outside the gateway, is exactly as
+# protected as one reached through it. If a cell of the authorization matrix or a @PreAuthorize rule
+# ever appears in this module, the design of the security foundation has been violated (guide 4.5).
+#
+# /internal/** is deliberately absent and must stay absent: the inter-service API (SEC-10) is
+# reachable on the internal network only, never from outside (LLD 21 §8).
 spring:
   cloud:
     gateway:
       server:
         webmvc:
           routes:
+
+            # Sandbox-service
             - id: sandbox-service
               uri: lb://sandbox-service  # Logical name resolved via Eureka, never a hardcoded port
               predicates:
                 - Path=/api/sandbox/**  # Matches sandbox-service's actual controllers (/api/sandbox/config, /discovery, /kafka, /mongo, /postgres, /mail)
+
+            # Identity-service — sign-in, the caller's own identity, and the members of a clinic.
+            # The paths match the routes that exist today (authorization matrix, _docs/security/):
+            # anything broader would forward requests to endpoints that do not exist.
+            - id: identity-service
+              uri: lb://identity-service  # Logical name resolved via Eureka, never a hardcoded port
+              predicates:
+                - Path=/api/v1/auth/**,/api/v1/me,/api/v1/clinics/*/members,/api/v1/clinics/*/members/**
+
+            # Care-service — the SEC-14 skeleton: two reads on a patient record, no write route.
+            - id: care-service
+              uri: lb://care-service
+              predicates:
+                - Path=/api/v1/clinics/*/records/**

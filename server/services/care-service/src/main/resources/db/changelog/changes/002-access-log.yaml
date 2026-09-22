@@ -1,0 +1,65 @@
+# Access log — P4 of the foundation, and the direct counterpart of SEC-03.
+#
+# Because the record IS shared between every practitioner of a clinic, compartmentalisation does not
+# exist here; traceability replaces it. An access to health data must be explainable afterwards.
+# Added now it is a table and an aspect; added later it means instrumenting every clinical endpoint
+# one by one.
+#
+# APPEND-ONLY is enforced by the database, not by a convention: a trigger refuses UPDATE and DELETE.
+# A log that the application could rewrite is not evidence of anything. Retention, export and
+# alerting stay out of scope (Hardening) — only the capture is part of the foundation.
+databaseChangeLog:
+  - changeSet:
+      id: 002-01-access-log
+      author: clinexa
+      comment: Who read what, when, in which clinic. No clinical content is copied into the log.
+      changes:
+        - sql:
+            sql: |
+              CREATE TABLE access_log (
+                  id           uuid PRIMARY KEY,
+                  clinic_id    uuid NOT NULL,
+                  account_id   uuid NOT NULL,
+                  role         text NOT NULL,
+                  action       text NOT NULL,
+                  resource     text NOT NULL,
+                  resource_id  uuid,
+                  trace_id     text,
+                  occurred_at  timestamptz NOT NULL DEFAULT now(),
+                  CONSTRAINT ck_access_log_clinic CHECK (clinic_id <> '00000000-0000-0000-0000-000000000000')
+              );
+
+              -- The two questions this log is asked: "who touched this record?" and
+              -- "what did this person read?" — both always inside one clinic.
+              CREATE INDEX idx_access_log_resource ON access_log (clinic_id, resource_id, occurred_at DESC);
+              CREATE INDEX idx_access_log_account ON access_log (clinic_id, account_id, occurred_at DESC);
+      rollback:
+        - sql:
+            sql: DROP TABLE access_log;
+
+  - changeSet:
+      id: 002-02-access-log-append-only
+      author: clinexa
+      comment: >
+        Append-only, enforced by the engine. Without this, "append-only" is a habit; with it, an
+        UPDATE or a DELETE — including one issued by the application itself — raises an error.
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION access_log_immutable() RETURNS trigger AS $$
+              BEGIN
+                  RAISE EXCEPTION 'access_log is append-only: % refused', TG_OP
+                      USING ERRCODE = 'restrict_violation';
+              END;
+              $$ LANGUAGE plpgsql;
+
+              CREATE TRIGGER trg_access_log_immutable
+                  BEFORE UPDATE OR DELETE ON access_log
+                  FOR EACH ROW EXECUTE FUNCTION access_log_immutable();
+      rollback:
+        - sql:
+            splitStatements: false
+            sql: |
+              DROP TRIGGER trg_access_log_immutable ON access_log;
+              DROP FUNCTION access_log_immutable();

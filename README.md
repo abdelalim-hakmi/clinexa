@@ -75,6 +75,7 @@ Validate a running stack end-to-end with the scripts in [`_dev/`](_dev/):
 .\_dev\mongo-smoke-test.ps1      # ping, insert/find round-trip
 .\_dev\redis-smoke-test.ps1      # PING, SET/GET round-trip
 .\_dev\zipkin-smoke-test.ps1     # UI up, span POST/GET round-trip
+._devsession-smoke-test.ps1    # CSRF token, login, /me, the same session on care-service, logout (needs the services running)
 ```
 All check container health, cross-container network reachability, and accept override params — see each script for defaults.
 
@@ -95,27 +96,34 @@ clinexa/
 │   ├── postgres-smoke-test.ps1        # Postgres end-to-end smoke test
 │   ├── mongo-smoke-test.ps1           # Mongo end-to-end smoke test
 │   ├── redis-smoke-test.ps1           # Redis end-to-end smoke test
+│   ├── session-smoke-test.ps1         # A development session in under a minute (SEC-05)
 │   └── zipkin-smoke-test.ps1          # Zipkin end-to-end smoke test
 ├── _docs/
-│   └── clinexa-architecture.drawio.svg # System architecture diagram
+│   ├── clinexa-architecture.drawio.svg # System architecture diagram
+│   ├── architecture/
+│   │   └── configuration.md           # Config server, Eureka, gateway, tracing — startup order & conventions
+│   └── security/                      # The J3 security-foundation deliverables
+│       ├── authorization-matrix.md    # THE authorization matrix — read it before touching a route
+│       ├── identity-model.md          # Identity & tenant model, and the decisions behind it
+│       ├── tenant-isolation.md        # The four isolation layers, all mandatory
+│       ├── authentication.md          # Opaque session + Redis, CSRF, dev accounts
+│       └── tests.md                   # Six test families, six inventory rules, thirteen criteria
 ├── client/                            # Angular 22 SPA
 │   ├── README.md
 │   ├── package.json
 │   ├── angular.json
+│   ├── proxy.conf.json                # Dev proxy: /api → api-gateway (:9000)
 │   └── src/
-├── server/                            # Spring Boot microservices
-│   ├── README.md
-│   ├── pom.xml                        # Parent POM (multi-module)
-│   ├── platform/
-│   │   ├── config/                    # Config server
-│   │   ├── discovery/                 # Eureka server
-│   │   └── api-gateway/               # API Gateway
-│   ├── services/
-│   │   ├── rdv-service/               # Appointment service
-│   │   ├── praticien-service/         # Practitioner service
-│   │   └── ...
-│   └── shared/                        # Shared library (DTOs, events, exceptions)
-└── docs/                              # Additional documentation (future)
+└── server/                            # Spring Boot microservices
+    ├── README.md
+    ├── pom.xml                        # Parent POM (multi-module)
+    ├── platform/
+    │   ├── config-server/             # Config server (:8888)
+    │   ├── discovery-server/          # Eureka server (:8761)
+    │   └── api-gateway/               # API Gateway (:9000)
+    ├── sandbox/                       # Disposable sandbox-service (:8090) — git-ignored, not in the parent POM
+    ├── services/                      # identity-service (:8100) and the care-service skeleton (:8101); scheduling, billing, engagement, public-bff planned
+    └── shared/                        # Shared library (DTOs, events, exceptions, security primitives)
 ```
 
 ---
@@ -144,6 +152,7 @@ docker compose down     # Stop all services
 
 - **[client/README.md](client/README.md)** — Client setup & commands
 - **[server/README.md](server/README.md)** — Server setup & commands
+- **[_docs/architecture/configuration.md](_docs/architecture/configuration.md)** — Config server, Eureka, API gateway and tracing: startup order and conventions
 - `CLAUDE.md` — Internal guidance for Claude Code (gitignored, local-only — not part of the shared repo)
 
 ---

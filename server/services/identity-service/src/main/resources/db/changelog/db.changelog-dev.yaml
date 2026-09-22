@@ -1,0 +1,13 @@
+# `dev` profile changelog: the schema, then the test accounts.
+#
+# It is NEVER designated in production: `configurations/identity-service.yml` points at the master,
+# and only `configurations/identity-service-dev.yml` points here. Two files, two paths — rather
+# than an `if` in a single one, because a condition always ends up being true in the wrong place.
+#
+# SEC-05: there is no profile without security. `dev` adds provisioned accounts, nothing else.
+# The filter chain, CSRF, L1, the matrix: strictly identical to production.
+databaseChangeLog:
+  - include:
+      file: db/changelog/db.changelog-master.yaml
+  - include:
+      file: db/changelog/seed/100-test-accounts.yaml

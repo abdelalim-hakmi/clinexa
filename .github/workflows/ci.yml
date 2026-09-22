@@ -1,0 +1,130 @@
+# CI — the status check that makes criterion 13 real.
+#
+# Criterion 13 of the security foundation is "every test above runs in CI and BLOCKS the merge".
+# A suite that is green on someone's laptop is a suite that will be red one day without anyone
+# noticing; only a required status check turns "we wrote the test" into "the rule holds".
+#
+# Two rules the security folder insists on, and that this file implements:
+#   - the security tests run in the STANDARD `mvn verify`, never in a separate profile. A profile is
+#     something one eventually stops activating (04 §4).
+#   - the NUMBER of tests executed is checked. A green CI that ran nothing is a known trap: a broken
+#     surefire configuration, a module dropped from the reactor, and the build stays green while
+#     proving nothing.
+#
+# The integration tests start real Postgres, Redis and Kafka containers through Testcontainers.
+# GitHub-hosted runners provide Docker, so nothing else is needed here.
+#
+# After merging this file, the check has to be made REQUIRED, which is a repository setting and not
+# a file: Settings → Branches → branch protection on `develop` and on `main` → "Require status
+# checks to pass before merging" → `build`. Until that box is ticked, a red PR is still mergeable
+# and criterion 13 is not met.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+# A new push supersedes the previous run on the same branch: no point paying for a result nobody
+# will read, and it keeps the queue short enough that the check stays a habit rather than a wait.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Build and test
+        working-directory: server
+        run: mvn -B -ntp clean verify
+
+      # The "green CI that ran nothing" check. It reads the surefire reports rather than the log,
+      # counts what actually ran, and fails on an implausibly small number — which is what a broken
+      # test configuration looks like from the outside.
+      - name: Check the number of tests actually executed
+        if: always()
+        working-directory: server
+        run: |
+          set -euo pipefail
+          minimum=100
+          total=$(find . -name 'TEST-*.xml' -path '*/surefire-reports/*' -print0 \
+            | xargs -0 --no-run-if-empty grep -ho 'tests="[0-9]*"' \
+            | grep -o '[0-9]*' | paste -sd+ - | bc)
+          total=${total:-0}
+          echo "Tests executed: $total (minimum expected: $minimum)"
+          if [ "$total" -lt "$minimum" ]; then
+            echo "::error::Only $total tests executed. A green CI that runs nothing proves nothing."
+            exit 1
+          fi
+
+      # No @Disabled on a test, anywhere in the reactor. The security folder treats one on a security
+      # test as a serious fault, on the same footing as making the build green by deleting the test —
+      # so it fails here rather than being noticed months later in a review.
+      #
+      # Deliberately NOT narrowed to "security-looking" paths: an earlier version filtered on file
+      # names (securite, tenant, matrice...) and let through the SEC-13 cross tests, the outbox
+      # derogation test and the gateway session-leak test, none of which have such a name. Every test
+      # of this build is a guarantee of some kind; if one really must be skipped, that is a decision
+      # to take in review, by editing this step, not something to slip past it.
+      - name: Refuse a disabled test
+        if: always()
+        working-directory: server
+        run: |
+          set -euo pipefail
+          if grep -rnE --include='*.java' --exclude-dir=target '@(Disabled|Ignore)\b' . | grep '/src/test/'; then
+            echo "::error::A test is disabled. Treat this as a fault, not as debt."
+            exit 1
+          fi
+
+      - name: Publish the test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: server/**/target/surefire-reports/
+          retention-days: 7
+
+  client:
+    name: build (client)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable Yarn 4
+        run: corepack enable
+
+      - name: Install
+        working-directory: client
+        run: yarn install --immutable
+
+      - name: Test
+        working-directory: client
+        run: yarn test --watch=false
+
+      - name: Build
+        working-directory: client
+        run: yarn build

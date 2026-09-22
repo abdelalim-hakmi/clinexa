@@ -1,0 +1,29 @@
+<main class="home">
+  @if (me(); as account) {
+    <header>
+      <h1>Hello {{ account.email }}</h1>
+      <button type="button" (click)="logout()">Log out</button>
+    </header>
+
+    <section>
+      <h2>Your clinics</h2>
+      @if (account.clinics.length === 0) {
+        <!--
+          An account with no assignment can exist: it is logged in and has access to nothing. That
+          is the expected behavior after a revocation, and it must say so clearly rather than look
+          like a failure.
+        -->
+        <p>No clinic is attached to you yet.</p>
+      } @else {
+        <ul>
+          @for (clinic of account.clinics; track clinic.clinicId) {
+            <li>
+              <code>{{ clinic.clinicId }}</code>
+              <span>{{ clinic.roles.join(' · ') }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</main>

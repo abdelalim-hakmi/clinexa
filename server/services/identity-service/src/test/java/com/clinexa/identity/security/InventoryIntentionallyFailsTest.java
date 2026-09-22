@@ -3,9 +3,6 @@ package com.clinexa.identity.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,10 +13,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import com.clinexa.identity.support.IdentityContainers;
 import com.clinexa.shared.security.fixtures.AuthorizationMatrix;
+import com.clinexa.shared.security.fixtures.EndpointInventory;
 
 /**
  * Proof that INV-1 actually fails — guide 10.8.
@@ -65,16 +62,7 @@ class InventoryIntentionallyFailsTest {
 
 	@Test
 	void inv1CatchesAnEndpointAddedOutsideTheMatrix() {
-		var exposed = this.context.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)
-			.getHandlerMethods()
-			.keySet()
-			.stream()
-			.filter(info -> info.getPathPatternsCondition() != null)
-			.flatMap(info -> info.getPathPatternsCondition().getPatterns().stream())
-			.map(pattern -> Pattern.compile("\\{[^}]+}").matcher(pattern.getPatternString()).replaceAll("{}"))
-			.collect(Collectors.toSet());
-
-		assertThat(exposed).contains("/api/v1/debug/etat-interne");
+		assertThat(EndpointInventory.exposedPaths(this.context)).contains("/api/v1/debug/etat-interne");
 		assertThat(AuthorizationMatrix.declaredRoutes())
 			.as("if this assertion fails, INV-1 has stopped catching undeclared routes")
 			.doesNotContain("/api/v1/debug/etat-interne");

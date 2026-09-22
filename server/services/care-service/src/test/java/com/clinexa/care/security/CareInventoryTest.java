@@ -3,18 +3,14 @@ package com.clinexa.care.security;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import com.clinexa.care.support.CareIntegrationTest;
 import com.clinexa.shared.security.fixtures.AuthorizationMatrix;
+import com.clinexa.shared.security.fixtures.EndpointInventory;
 import com.clinexa.shared.security.fixtures.InventoryRules;
 import com.tngtech.archunit.core.domain.JavaClasses;
 
@@ -41,7 +37,7 @@ class CareInventoryTest {
 	// (SEC-14), this is also what stops the perimeter from growing quietly.
 	@Test
 	void inv1EveryExposedEndpointIsInTheMatrix() {
-		assertThat(exposedEndpoints()).isNotEmpty()
+		assertThat(EndpointInventory.exposedEndpoints(this.context)).isNotEmpty()
 			.allSatisfy(endpoint -> assertThat(AuthorizationMatrix.declaredRoutesAndVerbs())
 				.as("%s is not in _docs/security/authorization-matrix.md nor in matrice.csv."
 						+ " On this skeleton, any extra route also requires an ADR (SEC-14).", endpoint)
@@ -50,15 +46,16 @@ class CareInventoryTest {
 
 	@Test
 	void inv1TheMatrixDoesNotDeclareAVanishedRoute() {
-		assertThat(AuthorizationMatrix.declaredRoutesAndVerbs()).allSatisfy(declared -> assertThat(exposedEndpoints())
-			.as("%s is declared in matrice.csv but no longer exists in the code", declared)
-			.contains(declared));
+		assertThat(AuthorizationMatrix.declaredRoutesAndVerbs())
+			.allSatisfy(declared -> assertThat(EndpointInventory.exposedEndpoints(this.context))
+				.as("%s is declared in matrice.csv but no longer exists in the code", declared)
+				.contains(declared));
 	}
 
 	// SEC-14, checked rather than trusted: two reads, and no write route at all.
 	@Test
 	void sec14TheSkeletonHasNoWriteRoute() {
-		assertThat(exposedEndpoints()).allSatisfy(endpoint -> assertThat(endpoint)
+		assertThat(EndpointInventory.exposedEndpoints(this.context)).allSatisfy(endpoint -> assertThat(endpoint)
 			.as("the care skeleton only exposes reads (SEC-14)")
 			.startsWith("GET "));
 	}
@@ -108,31 +105,6 @@ class CareInventoryTest {
 	@Test
 	void inv6OnlyCurrentUserGivesAccessToTheIdentity() {
 		InventoryRules.identityContractRespected(Set.of()).check(CLASSES);
-	}
-
-	/** {@code VERB /path} for every endpoint, with variables normalised to {@code {}}. */
-	private Set<String> exposedEndpoints() {
-		RequestMappingHandlerMapping mapping = this.context.getBean("requestMappingHandlerMapping",
-				RequestMappingHandlerMapping.class);
-		return mapping.getHandlerMethods()
-			.keySet()
-			.stream()
-			.flatMap(CareInventoryTest::expand)
-			// Spring's own error dispatch, not an endpoint anyone routes to.
-			.filter(endpoint -> !endpoint.endsWith(" /error"))
-			.collect(Collectors.toUnmodifiableSet());
-	}
-
-	private static Stream<String> expand(RequestMappingInfo info) {
-		Set<String> paths = info.getPathPatternsCondition() == null ? Set.of()
-				: info.getPathPatternsCondition()
-					.getPatterns()
-					.stream()
-					.map(pattern -> Pattern.compile("\\{[^}]+}").matcher(pattern.getPatternString()).replaceAll("{}"))
-					.collect(Collectors.toSet());
-		Set<String> verbs = info.getMethodsCondition().getMethods().isEmpty() ? Set.of("GET")
-				: info.getMethodsCondition().getMethods().stream().map(Enum::name).collect(Collectors.toSet());
-		return paths.stream().flatMap(path -> verbs.stream().map(verb -> verb + " " + path));
 	}
 
 }

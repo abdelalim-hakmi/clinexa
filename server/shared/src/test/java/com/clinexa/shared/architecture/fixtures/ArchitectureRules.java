@@ -7,7 +7,7 @@ import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition;
  * Structural rules — what the <em>package layout</em> must look like, independent of any security
  * property. Kept in its own package rather than alongside {@code shared}'s
  * {@code security.fixtures} (six ratified security invariants, INV-2..6,
- * {@code _docs/security/tests.md}): this rule carries no INV number and applies the same way to
+ * {@code Clinexa-vault/Security/MVP/04-tests-et-criteres-dacceptation.md}): this rule carries no INV number and applies the same way to
  * every domain service, so it does not belong under a package {@code shared}'s own CLAUDE.md scopes
  * to "security primitives and nothing else".
  */

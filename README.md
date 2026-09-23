@@ -8,8 +8,6 @@ A microservices-based platform for managing appointments and practitioners. This
 - **Frontend**: Angular 22 SPA with Yarn package manager
 - **Backend**: Spring Boot/Spring Cloud microservices architecture
 
-See `_docs/clinexa-architecture.drawio.svg` for the system architecture diagram.
-
 ---
 
 ## Prerequisites (All)
@@ -77,7 +75,7 @@ Validate a running stack end-to-end with the scripts in [`_dev/`](_dev/):
 .\_dev\mongo-smoke-test.ps1      # ping, insert/find round-trip
 .\_dev\redis-smoke-test.ps1      # PING, SET/GET round-trip
 .\_dev\zipkin-smoke-test.ps1     # UI up, span POST/GET round-trip
-._devsession-smoke-test.ps1    # CSRF token, login, /me, the same session on care-service, logout (needs the services running)
+.\_dev\session-smoke-test.ps1  # CSRF token, login, /me, the same session on care-service, logout (needs the services running)
 ```
 All check container health, cross-container network reachability, and accept override params — see each script for defaults.
 
@@ -91,23 +89,12 @@ clinexa/
 ├── .env.example                       # Environment template
 ├── docker-compose.yaml                # Services orchestration
 ├── _dev/
-│   ├── docker-compose-fixes.md        # Dev-infra fix log
 │   ├── kafka-smoke-test.ps1           # Kafka end-to-end smoke test
 │   ├── postgres-smoke-test.ps1        # Postgres end-to-end smoke test
 │   ├── mongo-smoke-test.ps1           # Mongo end-to-end smoke test
 │   ├── redis-smoke-test.ps1           # Redis end-to-end smoke test
 │   ├── session-smoke-test.ps1         # A development session in under a minute (SEC-05)
 │   └── zipkin-smoke-test.ps1          # Zipkin end-to-end smoke test
-├── _docs/
-│   ├── clinexa-architecture.drawio.svg # System architecture diagram
-│   ├── architecture/
-│   │   └── configuration.md           # Config server, Eureka, gateway, tracing — startup order & conventions
-│   └── security/                      # The J3 security-foundation deliverables
-│       ├── authorization-matrix.md    # THE authorization matrix — read it before touching a route
-│       ├── identity-model.md          # Identity & tenant model, and the decisions behind it
-│       ├── tenant-isolation.md        # The four isolation layers, all mandatory
-│       ├── authentication.md          # Opaque session + Redis, CSRF, dev accounts
-│       └── tests.md                   # Six test families, six inventory rules, thirteen criteria
 ├── client/                            # Angular 22 SPA
 │   ├── README.md
 │   ├── package.json
@@ -152,7 +139,6 @@ docker compose down     # Stop all services
 
 - **[client/README.md](client/README.md)** — Client setup & commands
 - **[server/README.md](server/README.md)** — Server setup & commands
-- **[_docs/architecture/configuration.md](_docs/architecture/configuration.md)** — Config server, Eureka, API gateway and tracing: startup order and conventions
 - `CLAUDE.md` — Internal guidance for Claude Code (gitignored, local-only — not part of the shared repo)
 
 ---

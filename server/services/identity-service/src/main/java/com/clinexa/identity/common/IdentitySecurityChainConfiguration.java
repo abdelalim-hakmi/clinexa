@@ -29,7 +29,7 @@ import com.clinexa.shared.security.web.DenialHandler;
  * The authorization matrix of {@code identity-service}, and the authentication mechanism it is the
  * only service to own.
  * <p>
- * The matrix is the executable form of {@code _docs/security/authorization-matrix.md}, written
+ * The matrix is the executable form of {@code Clinexa-vault/Security/MVP/03-rbac-et-matrice-autorisation.md}, written
  * <strong>before</strong> this file: a matrix written afterwards only describes what the code
  * already does, while one written first is the specification the code and the tests are measured
  * against. {@code src/test/resources/matrice.csv} holds the same table in machine-readable form and

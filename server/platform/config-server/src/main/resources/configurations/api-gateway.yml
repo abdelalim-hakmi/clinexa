@@ -23,7 +23,7 @@ spring:
                 - Path=/api/sandbox/**  # Matches sandbox-service's actual controllers (/api/sandbox/config, /discovery, /kafka, /mongo, /postgres, /mail)
 
             # Identity-service — sign-in, the caller's own identity, and the members of a clinic.
-            # The paths match the routes that exist today (authorization matrix, _docs/security/):
+            # The paths match the routes that exist today (authorization matrix, matrice.csv):
             # anything broader would forward requests to endpoints that do not exist.
             - id: identity-service
               uri: lb://identity-service  # Logical name resolved via Eureka, never a hardcoded port

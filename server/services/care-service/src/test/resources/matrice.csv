@@ -1,4 +1,4 @@
-# Authorization matrix of care-service — transcription of _docs/security/authorization-matrix.md.
+# Authorization matrix of care-service — transcription of Clinexa-vault/Security/MVP/03-rbac-et-matrice-autorisation.md.
 # Data source of F2 (CareAuthorizationMatrixTest) and of INV-1 (CareInventoryTest).
 # SEC-14 skeleton: two reads, zero writes. Any line added here requires an ADR.
 route;verb;role;allowed

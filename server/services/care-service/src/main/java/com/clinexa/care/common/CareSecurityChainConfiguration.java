@@ -18,7 +18,7 @@ import com.clinexa.shared.security.web.DenialHandler;
 /**
  * The authorization matrix of {@code care-service}, and nothing else.
  * <p>
- * It is the executable form of {@code _docs/security/authorization-matrix.md}, which was written
+ * It is the executable form of {@code Clinexa-vault/Security/MVP/03-rbac-et-matrice-autorisation.md}, which was written
  * <strong>before</strong> this file — a matrix written after the configuration only describes what
  * the code already does; written before, it is the specification the code and the tests are measured
  * against. {@code src/test/resources/matrice.csv} carries the same table in machine-readable form,

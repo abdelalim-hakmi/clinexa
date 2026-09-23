@@ -84,7 +84,6 @@ End-to-end check of the security foundation — a working session in under a min
 pwsh ../_dev/session-smoke-test.ps1
 ```
 
-More (config priority, gateway routes, tracing): [`../_docs/architecture/configuration.md`](../_docs/architecture/configuration.md).
 
 ## Testing
 
@@ -166,7 +165,7 @@ When creating a new microservice:
    mkdir -p server/services/my-service/src/test
    ```
 
-5. **Wire it into the platform** (details and startup order: [`../_docs/architecture/configuration.md`](../_docs/architecture/configuration.md)):
+5. **Wire it into the platform**:
    - a local `application.yaml` with only `spring.application.name` and `spring.config.import: optional:configserver:http://localhost:8888`;
    - a matching `configurations/<name>.yml` in `platform/config-server` (port, business properties);
    - dependencies `spring-cloud-starter-config`, `spring-cloud-starter-netflix-eureka-client`, and tracing (`spring-boot-starter-zipkin` + `spring-boot-micrometer-tracing-brave`) — the Zipkin endpoint and sampling rate come from `configurations/application.yml`;
@@ -182,7 +181,7 @@ When creating a new microservice:
 
 ## Architecture Notes
 
-The backend is designed as a **Spring Cloud microservices system**. See `_docs/clinexa-architecture.drawio.svg` for the diagram.
+The backend is designed as a **Spring Cloud microservices system**.
 
 ### Current Modules
 - **shared** — Common DTOs, events, exceptions, utilities (NOT a service)

@@ -118,7 +118,7 @@ client/
 watching a screen fill up with `401`s. It protects nothing: the data is protected server-side — the
 filter chain, the tenant filter (L1) and `@TenantId` — and would stay protected if that file were
 deleted. A route guard is bypassed by opening the developer tools; that is exactly why security is
-not there. Details: [`../_docs/security/`](../_docs/security/).
+not there.
 
 **The SPA and the API must be same-origin.** Angular attaches the `X-XSRF-TOKEN` header only on an
 identical origin — otherwise it attaches nothing at all and **every `POST` answers `403`** with no

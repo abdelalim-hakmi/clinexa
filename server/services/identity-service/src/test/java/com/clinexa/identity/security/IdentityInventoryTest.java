@@ -41,7 +41,7 @@ class IdentityInventoryTest {
 	void inv1EveryExposedEndpointIsInTheMatrix() {
 		assertThat(EndpointInventory.exposedEndpoints(this.context)).isNotEmpty()
 			.allSatisfy(endpoint -> assertThat(AuthorizationMatrix.declaredRoutesAndVerbs())
-				.as("%s is not in _docs/security/authorization-matrix.md nor in matrice.csv."
+				.as("%s is not in Clinexa-vault/Security/MVP/03-rbac-et-matrice-autorisation.md nor in matrice.csv."
 						+ " The matrix precedes the code: update it, then rerun.", endpoint)
 				.contains(endpoint));
 	}

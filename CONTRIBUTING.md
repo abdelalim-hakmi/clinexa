@@ -22,9 +22,9 @@ Subject in the imperative, the *why* in the body.
 
 ## Security rules that fail the build
 
-Read `_docs/security/reading-the-code.md` before touching a service. In short:
+Before touching a service, read the security foundation in the vault (`Security/MVP/`). In short:
 
-- Update `_docs/security/authorization-matrix.md` **and** the service's `src/test/resources/matrice.csv`
+- Update the matrix (`Clinexa-vault/Security/MVP/03-rbac-et-matrice-autorisation.md` §7) **and** the service's `src/test/resources/matrice.csv`
   **before** adding a route — INV-1 fails otherwise.
 - Never write `anyRequest()`, never inject `Authentication`, `Jwt` or `HttpSession` outside the
   authentication package — read `CurrentUser`.

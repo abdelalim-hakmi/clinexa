@@ -1,4 +1,4 @@
-# Authorization matrix of identity-service — transcription of _docs/security/authorization-matrix.md.
+# Authorization matrix of identity-service — transcription of Clinexa-vault/Security/MVP/03-rbac-et-matrice-autorisation.md.
 # Data source of F2 (IdentityAuthorizationMatrixTest) and of INV-1 (IdentityInventoryTest).
 # Path variables are written {}: patterns are compared, not variable names.
 # ANONYMOUS = request with no session. allowed=false => 401 for ANONYMOUS, 403 otherwise.
